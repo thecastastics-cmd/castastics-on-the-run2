@@ -63,7 +63,7 @@ html, body {
 
 <div id="menu">
     <h1 style="color:#00ff00; margin: 0; font-style: italic; cursor: pointer; pointer-events: auto;" onclick="checkCheat()">CASTASTICS</h1>
-    <div style="color:#ffd700; margin: 5px 0;">BANK: 🪙 <span id="totalCoinsDisplay">0</span></div>
+    <div style="color:#ffd700; margin: 5px 0;">BANK: 🟡 <span id="totalCoinsDisplay">0</span></div>
     <div class="char-grid" id="charGrid"></div>
     <button onclick="startGame()">RUN!</button>
 </div>
@@ -72,14 +72,14 @@ html, body {
     <h2 id="previewName">CHARACTER NAME</h2>
     <div id="abilityText" style="color:#00ffff; font-size:12px; margin-bottom:5px;"></div>
     <img id="largeImg" src="" alt="Preview" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
-    <div id="previewStatus" style="margin-bottom: 20px; font-weight: bold;">COST: 🪙100</div>
+    <div id="previewStatus" style="margin-bottom: 20px; font-weight: bold;">COST:  🟡100</div>
     <button id="previewActionBtn" onclick="handlePreviewAction()">SELECT</button>
     <button class="secondary-btn" onclick="closePreviewer()">BACK</button>
 </div>
 
 <div id="reviveMenu">
     <h2 style="color:#ffd700;">CRASHED!</h2>
-    <p>Revive for 🪙 <span id="reviveCostText">5</span>?</p>
+    <p>Revive for 🟡 <span id="reviveCostText">5</span>?</p>
     <button onclick="revivePlayer()">REVIVE</button>
     <button class="secondary-btn" onclick="endGamePermanently()">NO THANKS</button>
 </div>
@@ -172,7 +172,7 @@ html, body {
             status.innerText = "UNLOCKED"; status.style.color = "#00ff00";
             btn.innerText = "SELECT";
         } else {
-            status.innerText = `COST: 🪙${char.cost}`; status.style.color = "#ffd700";
+            status.innerText = `COST: 🟡${char.cost}`; status.style.color = "#ffd700";
             btn.innerText = "BUY";
         }
         document.getElementById('previewer').style.display = 'flex';
@@ -443,7 +443,7 @@ html, body {
             mData.prog = 0;
             localStorage.setItem('casta_level', mData.lvl);
             localStorage.setItem('casta_bank', totalCoins);
-            alert("MISSION COMPLETE!\nReward: 🪙" + reward);
+            alert("MISSION COMPLETE!\nReward: 🟡" + reward);
             lastTime = performance.now();
         }
     }, 50);
@@ -458,7 +458,7 @@ html, body {
             localStorage.setItem('casta_bank', totalCoins);
             localStorage.setItem('casta_last_claim', now);
             setTimeout(() => {
-                alert("🎁 DAILY REWARD!\nYou received 🪙1,000 coins!");
+                alert("🎁 DAILY REWARD!\nYou received 🟡1,000 coins!");
                 initMenu();
             }, 500);
         }
