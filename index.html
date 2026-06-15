@@ -1,345 +1,171 @@
 <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
+document.addEventListener('DOMContentLoaded', function() {
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-    // ONLY 11 CHARACTERS NOW
-    const castaNames = [
-        "DavidArtsy",
-        "Boxlunch Killer",
-        "Big Greene",
-        "James the Watch",
-        "Ezekiel Johnson/Space Pen",
-        "Pebbles",
-        "Eddie",
-        "Kenny",
-        "Smacky",
-        "A-Bomb",
-        "The Artist"
-    ];
+const castaNames = [
+"DavidArtsy",
+"Boxlunch Killer",
+"Big Green",
+"James the Watch",
+"Ezekiel Johnson/Space Pen",
+"Pebbles",
+"Eddie",
+"Kenny",
+"Smacky",
+"A-Bomb",
+"The Artist"
+];
 
-    const assets = {
-        road: new Image(), road2: new Image(), road3: new Image(),
-        magnet: new Image(), shield: new Image(),
-        multiplier: new Image(), obsLow: new Image(), obsHigh: new Image(), coin: new Image()
-    };
-    assets.road.src = 'images/road.png';
-    assets.road2.src = 'images/road2.png';
-    assets.road3.src = 'images/road3.png';
+const assets = {
+road: new Image(), road2: new Image(), road3: new Image(),
+magnet: new Image(), shield: new Image(),
+multiplier: new Image(), obsLow: new Image(), obsHigh: new Image(), coin: new Image()
+};
+assets.road.src = 'images/road.png';
+assets.road2.src = 'images/road2.png';
+assets.road3.src = 'images/road3.png';
+assets.magnet.src = 'images/magnet.png';
+assets.shield.src = 'images/shield.png';
+assets.multiplier.src = 'images/multiplier.png';
+assets.obsLow.src = 'images/obstacle_low.png';
+assets.obsHigh.src = 'images/obstacle_high.png';
+assets.coin.src = 'images/coin.png';
 
-    assets.magnet.src = 'images/magnet.png';
-    assets.shield.src = 'images/shield.png'; assets.multiplier.src = 'images/multiplier.png';
-    assets.obsLow.src = 'images/obstacle_low.png'; assets.obsHigh.src = 'images/obstacle_high.png';
-    assets.coin.src = 'images/coin.png';
+const sounds = {
+bg: new Audio('images/bg_music.mp3'), magnet: new Audio('images/powerup_magnet.mp3'),
+shield: new Audio('images/powerup_shield.mp3'), multiplier: new Audio('images/powerup_multiplier.mp3'),
+death: new Audio('images/death.mp3'), coin: new Audio('images/coin_ping.mp3'),
+oink: new Audio('images/oink.mp3')
+};
+sounds.bg.loop = true;
+let isMuted = false;
 
-    const sounds = {
-        bg: new Audio('images/bg_music.mp3'), magnet: new Audio('images/powerup_magnet.mp3'),
-        shield: new Audio('images/powerup_shield.mp3'), multiplier: new Audio('images/powerup_multiplier.mp3'),
-        death: new Audio('images/death.mp3'), coin: new Audio('images/coin_ping.mp3'),
-        oink: new Audio('images/oink.mp3')
-    };
-    sounds.bg.loop = true;
-    let isMuted = false;
+let gameState = 'menu', score = 0, coins = 0, lastTime = 0;
+let totalCoins = parseInt(localStorage.getItem('casta_bank')) || 0;
+let highScore = parseInt(localStorage.getItem('casta_high')) || 0;
+let currentLane = 1, visualX = 0, speed = 7, roadScrollY = 0, entities = [], runCycle = 0;
+let powerTimer = 0, activePower = null, playerYOffset = 0, playerYOffset = 0, playerJumpVal = 0, isSliding = false, slideTimer = 0;
+let reviveCost = 5, isPaused = false, currentPreviewingChar = null;
 
-    let gameState = 'menu', score = 0, coins = 0, lastTime = 0;
-    let totalCoins = parseInt(localStorage.getItem('casta_bank')) || 0;
-    let highScore = parseInt(localStorage.getItem('casta_high')) || 0;
-    let currentLane = 1, visualX = 0, speed = 7, roadScrollY = 0, entities = [], runCycle = 0;
-    let powerTimer = 0, activePower = null, playerYOffset = 0, playerJumpVal = 0, isSliding = false, slideTimer = 0;
-    let reviveCost = 5, isPaused = false, currentPreviewingChar = null;
+const villain = {
+active: false,
+x: 0,
+y: -100,
+targetX: 0,
+timer: 0,
+lastShot: 0,
+hp: 1
+};
 
-    // CHANGED: Only 11 characters now
-    let characters = [];
-    for(let i=1; i<=11; i++){
-        characters.push({
-            id: i,
-            name: castaNames[i-1],
-            imgSrc: `images/casta${i}.png`,
-            img: null,
-            cost: i===1? 0 : i*500, // First free, others cost 500, 1000, 1500... etc
-            unlocked: i===1 || localStorage.getItem('unlocked_'+i) === 'true',
-            color: `hsl(${i*33}, 70%, 50%)`
-        });
-    }
+let characters = [];
+for(let i=1; i<=11; i++){
+characters.push({
+id: i,
+name: castaNames[i-1],
+imgSrc: `images/casta${i}.png`,
+img: null,
+cost: i===1? 0 : i*500,
+unlocked: i===1 || localStorage.getItem('unlocked_'+i) === 'true',
+color: `hsl(${i*33}, 70%, 50%)`
+});
+}
 
-    let selectedChar = characters[0];
-    selectedChar.img = new Image(); selectedChar.img.src = selectedChar.imgSrc;
+let selectedChar = characters[0];
+selectedChar.img = new Image(); selectedChar.img.src = selectedChar.imgSrc;
 
-    function openPreviewer(char) {
-        currentPreviewingChar = char;
-        document.getElementById('previewName').innerText = char.name;
-        document.getElementById('largeImg').src = char.imgSrc;
-        const ability = document.getElementById('abilityText');
-        if(char.name === "Big Greene") ability.innerText = "⭐ ABILITY: 2X COINS";
-        else if(char.name === "Ezekiel Johnson/Space Pen") ability.innerText = "⭐ ABILITY: PERMANENT MAGNET";
-        else ability.innerText = "";
-        const btn = document.getElementById('previewActionBtn');
-        const status = document.getElementById('previewStatus');
-        if(char.unlocked) {
-            status.innerText = "UNLOCKED"; status.style.color = "#00ff00";
-            btn.innerText = "SELECT";
-        } else {
-            status.innerText = `COST: 🪙${char.cost}`; status.style.color = "#ffd700";
-            btn.innerText = "BUY";
-        }
-        document.getElementById('previewer').style.display = 'flex';
-    }
+function openPreviewer(char) {
+currentPreviewingChar = char;
+document.getElementById('previewName').innerText = char.name;
+document.getElementById('largeImg').src = char.imgSrc;
+const ability = document.getElementById('abilityText');
+if(char.name === "Big Green") ability.innerText = "⭐ ABILITY: 2X COINS";
+else if(char.name === "Ezekiel Johnson/Space Pen") ability.innerText = "⭐ ABILITY: 2X COINS";
+else ability.innerText = "";
+const btn = document.getElementById('previewActionBtn');
+const status = document.getElementById('previewStatus');
+if(char.unlocked) {
+status.innerText = "UNLOCKED"; status.style.color = "#00ff00";
+btn.innerText = "SELECT";
+} else {
+status.innerText = `COST: ${char.cost}`; status.style.color = "#ffd700";
+btn.innerText = "BUY";
+}
+document.getElementById('previewer').style.display = 'flex';
+}
 
-    function handlePreviewAction() {
-        const char = currentPreviewingChar;
-        if(char.unlocked) {
-            selectedChar = char;
-            if(!char.img) { char.img = new Image(); char.img.src = char.imgSrc; }
-            closePreviewer(); initMenu();
-        } else if(totalCoins >= char.cost) {
-            totalCoins -= char.cost; char.unlocked = true;
-            localStorage.setItem('unlocked_'+char.id, 'true');
-            localStorage.setItem('casta_bank', totalCoins);
-            openPreviewer(char); initMenu();
-        } else { alert("NOT ENOUGH COINS!"); }
-    }
+function handlePreviewAction() {
+const char = currentPreviewingChar;
+if(char.unlocked) {
+selectedChar = char;
+if(!char.img) { char.img = new Image(); char.img.src = char.imgSrc; }
+closePreviewer(); initMenu();
+} else if(totalCoins >= char.cost) {
+totalCoins -= char.cost; char.unlocked = true;
+localStorage.setItem('unlocked_'+char.id, 'true');
+localStorage.setItem('casta_bank', totalCoins);
+openPreviewer(char); initMenu();
+} else { alert("Not enough coins"); }
+}
 
-    function closePreviewer() { document.getElementById('previewer').style.display = 'none'; }
+function closePreviewer() { document.getElementById('previewer').style.display = 'none'; }
 
-    function checkCheat() {
-        const code = prompt("ENTER CODE:");
-        if(code === "CAU75") {
-            characters.forEach(c => { c.unlocked = true; localStorage.setItem('unlocked_'+c.id, 'true'); });
-            totalCoins += 99999; localStorage.setItem('casta_bank', totalCoins);
-            alert("ALL 11 CHARACTERS UNLOCKED & 99,999 COINS!");
-            initMenu();
-        }
-    }
+function checkCheat() {
+const code = prompt("Enter code:");
+if(code === "cheat") {
+characters.forEach(c => { c.unlocked = true; localStorage.setItem('unlocked_'+c.id, 'true'); });
+totalCoins += 9999; localStorage.setItem('casta_bank', totalCoins);
+alert("All unlocked!");
+initMenu();
+}
+}
 
-    function initMenu() {
-        const grid = document.getElementById('charGrid'); grid.innerHTML = '';
-        document.getElementById('totalCoinsDisplay').innerText = totalCoins;
-        document.getElementById('highScoreDisplay').innerText = Math.floor(highScore);
-        characters.forEach(c => {
-            const card = document.createElement('div');
-            card.className = `char-card ${selectedChar.id===c.id?'selected':''}`;
-            card.innerHTML = `<div style="font-size: 8px; color: #00ff00; margin-bottom: 2px; overflow: hidden; white-space: nowrap;">${c.name}</div>
-                <div style="width:40px;height:40px;background:${c.color};margin:auto;border-radius:4px;overflow:hidden;">
-                    <img src="${c.imgSrc}" loading="lazy" style="width:100%;height:100%;object-fit:contain;" onerror="this.style.display='none';">
-                </div>`;
-            card.onclick = () => openPreviewer(c);
-            grid.appendChild(card);
-        });
-    }
+function initMenu() {
+const grid = document.getElementById('charGrid'); grid.innerHTML = '';
+document.getElementById('totalCoinsDisplay').innerText = totalCoins;
+document.getElementById('highScoreDisplay').innerText = highScore;
+characters.forEach(c => {
+const card = document.createElement('div');
+card.className = `char-card ${selectedChar.id===c.id?'selected':''}`;
+card.innerHTML = `<img src="${c.imgSrc}" style="width:60px;height:60px;"><div>${c.name}</div><div>${c.cost} coins</div>`;
+card.onclick = () => openPreviewer(c);
+grid.appendChild(card);
+});
+}
 
-    function togglePause() {
-        if(gameState!== 'playing') return;
-        isPaused =!isPaused;
-        document.getElementById('pauseBtn').innerText = isPaused? 'RESUME' : 'PAUSE';
-        if(isPaused) sounds.bg.pause(); else if(!isMuted) sounds.bg.play().catch(()=>{});
-    }
+function startGame() {
+document.getElementById('menu').style.display = 'none';
+score = 0; coins = 0; villain.active = false;
+villain.y = -100; entities = []; currentLane = 1; speed = 7;
+visualX = canvas.width/2;
+powerTimer = 0; activePower = null; playerYOffset = 0; reviveCost = 5; isPaused = false;
+lastTime = performance.now();
+if(!isMuted) sounds.bg.play();
+gameState = 'playing'; requestAnimationFrame(update);
+}
 
-    function toggleMute() {
-        isMuted =!isMuted; Object.values(sounds).forEach(s => s.muted = isMuted);
-        document.getElementById('muteBtn').innerText = isMuted? '🔇' : '🔊';
-    }
+function update(timestamp) {
+if(gameState!== 'playing') return;
+const delta = (timestamp - lastTime) / 1000;
+lastTime = timestamp;
 
-    function startGame() {
-        document.getElementById('menu').style.display = 'none';
-        const liveUI = document.getElementById('liveIntro');
-        if(liveUI) {
-            document.getElementById('liveCharImg').src = selectedChar.imgSrc;
-            liveUI.style.display = 'flex';
-            setTimeout(() => { liveUI.style.display = 'none'; }, 10000);
-        }
-        score = 0; coins = 0; villain.active = false;
-        villain.y = -100; entities = []; currentLane = 1; speed = 7;
-        visualX = (canvas.width / 3) + (canvas.width / 6) - 35;
-        powerTimer = 0; activePower = null; playerYOffset = 0; reviveCost = 5; isPaused = false;
-        lastTime = performance.now();
-        if(!isMuted) {
-            sounds.bg.currentTime = 0; sounds.bg.play().catch(()=>{});
-        }
-        gameState = 'playing'; update();
-    }
+ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.fillStyle = '#222';
+ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    function revivePlayer() {
-        if (totalCoins >= reviveCost) {
-            totalCoins -= reviveCost; localStorage.setItem('casta_bank', totalCoins);
-            reviveCost *= 2; document.getElementById('reviveMenu').style.display = 'none';
-            entities = []; gameState = 'playing';
-            if(!isMuted) sounds.bg.play().catch(()=>{});
-            lastTime = performance.now(); update();
-        } else { alert("Not enough coins!"); }
-    }
+score += delta * 100;
+document.getElementById('scoreDisplay').innerText = Math.floor(score);
+document.getElementById('coinDisplay').innerText = coins;
 
-    function endGamePermanently() {
-        document.getElementById('reviveMenu').style.display = 'none';
-        document.getElementById('menu').style.display = 'flex';
-        if(score > highScore) { highScore = score; localStorage.setItem('casta_high', highScore); }
-        totalCoins += coins; localStorage.setItem('casta_bank', totalCoins);
-        initMenu();
-    }
+requestAnimationFrame(update);
+}
 
-    let tStart = {x:0, y:0};
-    window.addEventListener('touchstart', e => { tStart.x = e.touches[0].clientX; tStart.y = e.touches[0].clientY; }, {passive: false});
-    window.addEventListener('touchend', e => {
-        if(gameState!== 'playing' || isPaused) return;
-        let dx = e.changedTouches[0].clientX - tStart.x, dy = e.changedTouches[0].clientY - tStart.y;
-        if(Math.abs(dx) > Math.abs(dy)){
-            if(dx > 30 && currentLane < 2) currentLane++;
-            if(dx < -30 && currentLane > 0) currentLane--;
-        } else {
-            if(dy < -30 && playerYOffset === 0) playerJumpVal = 22;
-            if(dy > 30) { isSliding = true; slideTimer = 35; if(playerYOffset < 0) playerJumpVal = -15; }
-        }
-    });
-
-    function update(timestamp) {
-        if(gameState!== 'playing' || isPaused) { if(isPaused) { lastTime = timestamp; requestAnimationFrame(update); } return; }
-        ctx.clearRect(0,0,canvas.width, canvas.height);
-        let delta = (timestamp - lastTime) / 1000;
-        if(!isNaN(delta)) {
-            let scoreGain = (activePower === 'MULTIPLIER')? 200 : 100;
-            score += scoreGain * delta; runCycle += delta * 5;
-            roadScrollY += speed; if(roadScrollY >= canvas.height) roadScrollY = 0;
-        }
-        lastTime = timestamp;
-
-        let currentRoad = assets.road;
-        let stage = Math.floor(score / 10000) % 3;
-
-        if (stage === 1 && assets.road2.complete) {
-            currentRoad = assets.road2;
-        } else if (stage === 2 && assets.road3.complete) {
-            currentRoad = assets.road3;
-        }
-
-        if(currentRoad.complete && currentRoad.width > 0) {
-            ctx.drawImage(currentRoad, 0, roadScrollY, canvas.width, canvas.height);
-            ctx.drawImage(currentRoad, 0, roadScrollY - canvas.height, canvas.width, canvas.height);
-        } else {
-            ctx.fillStyle = '#111';
-            ctx.fillRect(0,0,canvas.width,canvas.height);
-        }
-
-        let targetX = currentLane * (canvas.width / 3) + (canvas.width / 6) - 35;
-        visualX += (targetX - visualX) * 0.15;
-        if(playerJumpVal!== 0 || playerYOffset < 0){
-            playerYOffset -= playerJumpVal; playerJumpVal -= 1.2;
-            if(playerYOffset > 0) { playerYOffset = 0; playerJumpVal = 0; }
-        }
-        if(isSliding) { slideTimer--; if(slideTimer <= 0) isSliding = false; }
-
-        if(Math.floor(score/10) % 7 === 0 && Math.random() < 0.15) {
-            let lane = Math.floor(Math.random()*3);
-            let r = Math.random();
-            let type = r > 0.94? 'magnet' : (r > 0.88? 'shield' : (r > 0.82? 'multiplier' : (r > 0.4? 'coin' : (Math.random() > 0.5? 'obsLow' : 'obsHigh'))));
-            entities.push({ lane, x: lane * (canvas.width/3) + (canvas.width/6) - 20, y: -100, type });
-        }
-
-        entities.forEach((en, i) => {
-            en.y += speed;
-            if((activePower === 'MAGNET' || selectedChar.name === "Ezekiel Johnson/Space Pen") && en.type === 'coin') {
-                en.x += (visualX + 15 - en.x) * 0.25;
-            }
-            let img = assets[en.type];
-            if(img && img.complete && img.width > 0) ctx.drawImage(img, en.x, en.y, 50, 50);
-            else { ctx.fillStyle = en.type === 'coin'? '#ffd700' : '#ff00ff'; ctx.beginPath(); ctx.arc(en.x+25, en.y+25, 20, 0, Math.PI*2); ctx.fill(); }
-
-            let midY = canvas.height / 2;
-            if(Math.abs(en.x - (visualX+10)) < 45 && en.y > midY + playerYOffset && en.y < midY + 120) {
-                if(en.type === 'coin') {
-                    if(!isMuted) { sounds.coin.currentTime = 0; sounds.coin.play().catch(()=>{}); }
-                    let coinVal = (activePower === 'MULTIPLIER'? 3 : 1);
-                    if(selectedChar.name === "Big Greene") coinVal *= 2;
-                    coins += coinVal;
-                    entities.splice(i, 1);
-                } else if(en.type.startsWith('obs')) {
-                    if(!((en.type === 'obsLow' && playerYOffset < -35) || (en.type === 'obsHigh' && isSliding))) {
-                        if(activePower === 'SHIELD') { activePower = null; powerTimer = 0; entities.splice(i, 1); }
-                        else { triggerDeath(); }
-                    }
-                } else {
-                    activePower = en.type.toUpperCase(); powerTimer = 600;
-                    if(!isMuted && sounds[en.type.toLowerCase()]) { sounds[en.type.toLowerCase()].currentTime = 0; sounds[en.type.toLowerCase()].play().catch(()=>{}); }
-                    entities.splice(i, 1);
-                }
-            }
-            if(en.y > canvas.height) entities.splice(i,1);
-        });
-
-        let swirlX = Math.sin(runCycle * Math.PI) * 15;
-        let stretch = Math.sin(runCycle * Math.PI * 2) * 0.1;
-        ctx.save();
-        ctx.translate(visualX + 35 + swirlX, (canvas.height / 2) + playerYOffset + 50);
-        ctx.rotate((targetX - visualX) * 0.05);
-        if(isSliding) { ctx.scale(1.4, 0.4); ctx.translate(0, 50); }
-        else if(playerYOffset < -10) { ctx.scale(0.8, 1.2); }
-        else { ctx.scale(1 + stretch, 1 - stretch); }
-
-        if(selectedChar.img && selectedChar.img.complete && selectedChar.img.naturalWidth!== 0) {
-            ctx.drawImage(selectedChar.img, -35, -50, 70, 100);
-        } else {
-            ctx.fillStyle = selectedChar.color || 'green';
-            ctx.fillRect(-35, -50, 70, 100);
-        }
-        ctx.restore();
-
-        const notify = document.getElementById('powerNotify');
-        if(powerTimer > 0) {
-            powerTimer--;
-            if(activePower === 'MULTIPLIER') { notify.innerText = "SCORE X2 & BONUS COINS!"; notify.style.color = "#fbff00"; }
-            else if(activePower === 'SHIELD') { notify.innerText = "SHIELD ACTIVE"; notify.style.color = "#00ffff"; }
-            else if(activePower === 'MAGNET') { notify.innerText = "MAGNET ON"; notify.style.color = "#ff00ff"; }
-        } else {
-            activePower = null;
-            notify.innerText = (selectedChar.name === "Ezekiel Johnson/Space Pen")? "MAGNET ALWAYS ON" : "";
-            notify.style.color = "white";
-        }
-        speed += 0.0005;
-        document.getElementById('coinCount').innerText = coins;
-        document.getElementById('scoreDisplay').innerText = Math.floor(score);
-
-        updateVillain(ctx, canvas, visualX, delta);
-
-        requestAnimationFrame(update);
-    }
-
-    function triggerDeath() {
-        document.getElementById('liveIntro').style.display = 'none';
-        gameState = 'revive'; sounds.bg.pause();
-        if(!isMuted) sounds.death.play().catch(()=>{});
-        document.getElementById('reviveCostText').innerText = reviveCost;
-        document.getElementById('reviveMenu').style.display = 'flex';
-    }
-    window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
-    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-    initMenu();
-
-    // MISSION SYSTEM - still works with 11 chars
-    const mData = {
-        lvl: parseInt(localStorage.getItem('casta_level')) || 1,
-        prog: 0,
-        types: ["JUMP", "SLIDE", "COINS", "POWERUPS"],
-        isJumping: false, lastSlide: false, lastPower: null, lastCoins: 0
-    };
-
-    const mUI = document.createElement('div');
-    mUI.id = "mDisplay";
-    mUI.style = "position:fixed; bottom:100px; left:20px; color:#00ffff; z-index:9999; font-family:sans-serif; font-weight:bold; text-shadow:2px 2px #000; pointer-events:none; display:none;";
-    document.body.appendChild(mUI);
-
-    setInterval(() => {
-        if (typeof gameState!== 'undefined' && gameState === 'playing' &&!isPaused) {
-            mUI.style.display = 'block';
-        } else {
-            mUI.style.display = 'none';
-            return;
-        }
-
-        let typeIdx = (mData.lvl - 1) % 4;
-        let target = 10 + (mData.lvl * 3);
-        let goalText = mData.types[typeIdx];
-
-        if (typeIdx === 0) {
-            if (playerYOffset < -5 &&!mData.isJumping) { mData.prog++; mData.isJumping = true; }
-            if (playerYOffset === 0) mData.isJumping = false;
-        }
-        if (typeIdx === 1 && isSliding &&!mData.lastSlide) mData.prog++;
-        mData.lastSlide = isSliding;
-        if (typeIdx === 2 && coins > mData.lastCoins) { mData.prog += (coins - m
+window.addEventListener('resize', () => {
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+});
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+initMenu();
+});
+    </script>
