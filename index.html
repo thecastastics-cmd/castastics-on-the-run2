@@ -1,191 +1,31 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Castastics Master Runner</title>
-    <style>
-
-html, body {
-            overscroll-behavior-y: none; 
-            touch-action: pan-x pan-y;
-}
-        
-        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; color: white; }
-        #gameUI { position: absolute; top: 10px; left: 15px; z-index: 10; pointer-events: none; text-shadow: 2px 2px #000; width: 100%; }
-        #menu, #reviveMenu, #previewer { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; padding: 20px; text-align: center; }
-        #reviveMenu, #previewer { display: none; z-index: 25; }
-        .char-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; max-height: 40vh; overflow-y: scroll; padding: 10px; border: 2px solid #444; background: #111; width: 90%; border-radius: 10px; }
-        .char-card { border: 2px solid #444; padding: 8px; text-align: center; border-radius: 8px; background: #222; font-size: 10px; }
-        .char-card.selected { border-color: #00ff00; background: #004400; }
-        #largeImg { width: 180px; height: 180px; object-fit: contain; margin: 20px 0; border: 4px solid #00ff00; border-radius: 15px; background: #111; padding: 10px; }
-        button { padding: 18px 40px; font-size: 22px; background: #00ff00; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; color: #000; margin: 5px; }
-        .secondary-btn { background: #555; color: white; font-size: 16px; padding: 10px 25px; }
-        #muteBtn { position: absolute; bottom: 20px; right: 20px; background: #333; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; z-index: 30; }
-        #pauseBtn { position: absolute; top: 15px; right: 15px; z-index: 30; background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 8px 15px; border-radius: 5px; pointer-events: auto; }
-    </style>
-</head>
-<body>
-
-    <div id="videoIntro" style="position:fixed; inset:0; background:#000; z-index:100000; display:flex; align-items:center; justify-content:center;">
-    <video id="trailerVideo" style="width:100%; height:100%; object-fit:contain;" autoplay muted playsinline>
-        <source src="images/trailer.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
-    <button id="skipBtn" style="position:absolute; bottom:30px; right:20px; padding:10px 20px; font-size:14px; background:rgba(255,255,255,0.3); color:white; border:1px solid white; border-radius:5px; z-index:100001;">SKIP</button>
-</div>
-
-<script>
-    const introOverlay = document.getElementById('videoIntro');
-    const video = document.getElementById('trailerVideo');
-    const skipBtn = document.getElementById('skipBtn');
-
-    // Function to close video and show game
-    function finishVideo() {
-        video.pause();
-        introOverlay.style.display = 'none';
-        // Try to unmute game music if it was blocked by the video
-        if(typeof initMenu === 'function') initMenu();
-    }
-
-    // When video ends naturally
-    video.onended = finishVideo;
-
-    // When skip is pressed
-    skipBtn.onclick = finishVideo;
-
-    // MOBILE AUTO-PLAY FIX: 
-    // Most phones block video sound until the user taps. 
-    // The video starts muted, but we can unmute it if they tap anywhere.
-    window.addEventListener('click', () => {
-        video.muted = false;
-    }, { once: true });
-</script>
-
-<div id="gameUI" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
-    
-    <div style="position: absolute; top: 10px; left: 10px; text-align: left; pointer-events: auto;">
-        <div style="color: #ffd700; font-size: 24px; text-shadow: 2px 2px 4px #000;">🪙 <span id="coinCount">0</span></div>
-        <div style="font-size: 14px; color: #00ff00; text-shadow: 1px 1px 2px #000; font-weight: bold;">BEST: <span id="highScoreDisplay">0</span></div>
-        <div style="font-size: 18px; color: #fff; text-shadow: 1px 1px 2px #000; font-weight: bold;">SCORE: <span id="scoreDisplay">0</span></div>
-    </div>
-
-    <div id="powerNotify" style="
-    position: absolute; 
-    top: 80px; 
-    left: 10px; 
-    white-space: nowrap; 
-    font-weight: bold; 
-    text-shadow: 2px 2px 5px #000; 
-    color: #ff00ff; 
-    z-index: 100;
-"></div>
-    <div style="position: absolute; top: 10px; right: 10px; pointer-events: auto;">
-        <button id="pauseBtn" onclick="togglePause()" style="
-            background: rgba(0,0,0,0.5); 
-            color: white; 
-            border: 2px solid white; 
-            border-radius: 8px; 
-            padding: 8px 15px;
-            font-weight: bold;
-        ">PAUSE</button>
-    </div>
-</div>
-
-<div id="menu">
-    <h1 style="color:#00ff00; margin: 0; font-style: italic; cursor: pointer; pointer-events: auto;" onclick="checkCheat()">CASTASTICS</h1>
-    <div style="color:#ffd700; margin: 5px 0;">BANK: 🪙 <span id="totalCoinsDisplay">0</span></div>
-    <div class="char-grid" id="charGrid"></div>
-    <button onclick="startGame()">RUN!</button>
-</div>
-
-<div id="previewer">
-    <h2 id="previewName">CHARACTER NAME</h2>
-    <div id="abilityText" style="color:#00ffff; font-size:12px; margin-bottom:5px;"></div>
-    <img id="largeImg" src="" alt="Preview" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
-    <div id="previewStatus" style="margin-bottom: 20px; font-weight: bold;">COST: 🪙100</div>
-    <button id="previewActionBtn" onclick="handlePreviewAction()">SELECT</button>
-    <button class="secondary-btn" onclick="closePreviewer()">BACK</button>
-</div>
-
-<div id="reviveMenu">
-    <h2 style="color:#ffd700;">CRASHED!</h2>
-    <p>Revive for 🪙 <span id="reviveCostText">5</span>?</p>
-    <button onclick="revivePlayer()">REVIVE</button>
-    <button class="secondary-btn" onclick="endGamePermanently()">NO THANKS</button>
-</div>
-
-<button id="muteBtn" onclick="toggleMute()">🔊</button>
-    <div id="liveIntro" style="position: absolute; bottom: 40%; left: 10px; z-index: 100; display: none; align-items: center; pointer-events: none;">
-    <img id="liveCharImg" src="" style="height: 180px; width: auto; object-fit: contain; filter: drop-shadow(2px 2px 5px rgba(0,0,0,0.5));">
-    <div style="background: white; color: black; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 12px; max-width: 150px; margin-left: -10px; border: 2px solid #000;">
-        Swipe up to jump, down to slide, left/right to move! Collect coins and powerups! Go!
-    </div>
-    </div>
-<canvas id="gameCanvas"></canvas>
-
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
 
+    // ONLY 11 CHARACTERS NOW
     const castaNames = [
-        "David Artsy", "Smacken", "Smacky", "A-Bomb", "Dennis The Menace", "Greg Heffley", "Nate Wright", "Kool Kid", "Girl Stick", "Hulk Ninja",
-        "Master Stick", "Bee", "Inky", "Lego Spy Girl", "Circle", "Square", "Triangle", "Rectangle", "Lego Jet-Man", "Lego Bubble Boy",
-        "Mrs. Fruitó", "Wheezy", "Whizzy", "Noobie", "Boxlunch Killer/Paul", "Joel", "Jet-Man", "Spy Girl", "The Artist", "Art Girl",
-        "Bubble Boy", "Stronge", "James The Watch", "Gold Chain/Chinea", "Queen Bee/Sabrina", "Key/Jordan", "Lock/Harry", "Danny/Klipper Knight", "Dart", "Screw",
-        "Speedy", "Zipper", "Radio", "Silver Chain", "Steele", "Scissors/Silvia", "Silver Watch", "Jesus", "Santa", "Max",
-        "Sam", "White", "Black", "Rex", "Trixie", "Jace", "Rowan", "Lily", "Mia", "Petria",
-        "Stampy", "Blitz Bot", "Velo", "DenisDaily", "Snake", "Walrus", "Fishy", "Dr. Evil Baby Head", "Blue", "Joel/Box Boy",
-        "Mr. Fruitó", "Mud Man", "Yellow", "Catty", "Exterminator", "Kevin Duplop/Bug Man", "Carla and Boyo", "Green", "BOX-Man", "Jenna the Haxter",
-        "Pollo", "Memo", "Dustin", "Terryann", "Balloon Man", "Toy Maker", "Lola", "Oscar", "Mia", "Lego Stronge",
-        "Cheese Man", "Chase", "Squishy", "Star", "Rock Man", "Lego The Artist", "Crab", "Pedro", "Chranos", "Grymph",
-        "The Admin", "Unstoppable Metal Beast", "Vanny/Swords Girl", "Super Spy Nick", "Bacon Hair Ryan", "Ian Alleyne", "1999 Jet-Man", "1999 Spy Girl", "1999 The Artist", "1999 Stronge",
-        "1999 Bubble Man", "Jaquan/Spider Glue", "Nate Skywalker", "Brian/The Guitarist", "Spider Guy", "Shiann Padme", "Glue", "Talking Angela", "Alex/Big Foot", "Harry/Covered",
-        "Lion Man", "Ishmell/Oh Mikkey Giggey Goo", "Roger/Car Man/Tank", "Jeremy/Stretcho", "Ian/Spider Glue", "Jade/Moon Witch", "Dark Shadow", "Sanjay/Slug Man", "Zach/SwordsMan", "Darker",
-        "Black Beard", "Angela", "Ginger", "Tom", "Jerry", "Tom", "Spongebob RectanglePants", "Jake", "Annie", "David",
-        "Chicken", "Jake (Subway Surfers)", "Venom", "Spider-Man", "Pac-Man", "Whom Whom Head/Whomie", "Bat Thumb", "Thumby", "BlackBeard", "Donnie",
-        "Husky", "Ella", "Carmen (Lizard)", "Sabrina", "Adrien", "Toodos", "Pinching Girl", "Gothic Shadow", "Super Noob", "Kelian/Arrow Boy",
-        "Flame", "Light", "Ice Jake", "The Artist (Jeremy)", "Spy Girl (Whitney)", "Inferno", "SwordsMan (Eren)", "Mega Boy (Adam)", "Johnny Herickson/Fire Pen", "Ezekiel Johnson/Space Pen",
-        "Ronal King/Unbreakable Pen", "Ivan Dél Rio/Ice Pen", "Jenny Herickson/Space Princess", "Gabby Charles/Pendi Queen", "Buzz Lightyear", "Sheriff Woody", "Bella The Pig", "Goofy", "Marty/Speed Demon", "Joey Bear",
-        "Carmen", "Super Magnet", "Three", "Hannah", "Kenny", "Little X Jr.", "Roger/Richard", "Ice", "Stephen", "Globe",
-        "Frank The Pencil", "Ruler", "Eddie", "Blue", "Sabrina", "Big Greene", "Ice", "Sammy", "Alocate Blacky", "Pinky Nokia",
-        "Shred", "Hand", "Pillow", "Maxwell", "Coffee", "Tom the TV", "Ella the Lamp", "Sam the Fan", "Pebbles", "Spots",
-        "Wrench", "Lego Bubble Man", "General Ian", "A-Boy", "Adesh", "Candy Girl", "Butthurst", "Clocky", "Leafy", "Father Shell",
-        "Flowery", "Bushy", "Mother Shell", "Girl Shell", "Boy Shell", "Black Rubberband", "Blue Rubberband", "Pink Rubberband", "Soap", "Sponge",
-        "Boxy the Meep", "Randy the Cardboard", "Slippers #1", "Slippers #2", "Black Perfume", "Klipper", "Klipper's Wife", "Evil Klipper", "Clothy", "Randy",
-        "Darkness", "Mr. Money Mouse", "Black Marker", "Cover", "Black Cover", "Grandpa Mud-Man", "Ray", "Billy", "Lizzy", "Butterclay",
-        "Messi", "Renii", "Black", "Blue", "Energy Pen Ninja", "Air Pen Ninja", "Earth Pen Ninja", "Lightning Pen Ninja", "Ice Pen Ninja", "Fire Pen Ninja",
-        "Master Ian", "Dark Vogue", "Rocket Launcher", "Bounce", "Toothbrush", "Toothpaste", "Thirsty", "Brian The Fool", "Stephen Jeffers", "Mcseen Jeffers",
-        "Doctor Deadpool", "Godzilla", "Point", "Oddsketeer Cat", "Gamer", "Princess Nya", "M&M", "Adesh", "Rigid Frenzy", "Hannah Carlita", "The Balls", "Dusty", "Pengu", "Light-Up Frenzy", "Bonnie", 
-"Roger Trucko", "Pinky", "Dr. Brainy", "Yellow Power Ranger", "Green Army Man", "Mr. Spell", "Evil Santa Bubbly-Head", "Sgt Ronal", "Super X", "Adrien", 
-"Sabrina", "Butterfly", "Jessie", "Kevin Duplop (Labcoat)", "Ezekiel", "Loco", "Kung Fu Bird", "Kevin Duplop", "Evil Klipper", "Hybro", 
-"Silvia Scissors (Red Fit)", "Metal Man", "Master Yen", "White Steele", "Battery", "Bookster", "Pencil Case", "Evil Scissors", "Bryan", "Top", 
-"Uncle Ian", "Point (Casual)", "Penita", "Uncle/Master Ian", "Kiara", "Green Pen", "Super Pen", "Gold Pen", "Super Noobie", "Big Apple", 
-"Carrot", "Belly", "DJ David", "The Artist/David (Civilian)", "X-Ray", "Fred", "Apple", "Crescent", "Evil Artist", "Nehemiah/The Footballer", 
-"MM-2", "Jeremy Johnson", "Master Gabby Charles/Pendi Queen", "Jane Johnson", "Dark Vogue (Pen Army)", "Evil Pen", "Map Pen", "Ezekiel Johnson/Space Pen (Classic)", "Ezekiel Johnson (Casual)", "Jenny Herickson (Princess Fit)", 
-"Oboe", "Cowboy", "Axel", "James the Watch's Father", "Blood Moon", "Flame (Criminal Fit)", "Brockli", "Wrench (Without Suit)", "Nate Skywalker (Armor)", "Star (Exercise Fit)", 
-"Bacon Hair Ryan (Admin)", "Adrien ( The Admin)", "Vanny/SwordsGirl (Classic)", "Ben Nose", "Rocket Launcher (Classic)", "Fluffy Chase", "Danny/The Exhibitor", "Rover", "Stick Boy & Stick Girl", "Adrien", 
-"Mr. Biscuit", "Lady Gaga", "Quelatikan/Speedy", "Whom Whom Head/Whomie (Human)", "John Doe", "The Community", "Guest 666", "Jade/Bug-Girl", "Shirt", "Pants", 
-"Pax", "Frank", "Toodos (Classic)", "Randy the Camera", "Iesha Forde", "Shoe #1", "Shoe #2", "Joey Bear", "Joel Bunny", "Bonnie", 
-"Dark Shadow (Classic)", "Dwayne/Thanos", "Hazel/ZelTiger", "BabyBrian (Alexander)/Sonic Prime", "BabyDavid/ArtistHero", "BabyEmily/SwiftClaw", "Ava/Cat Lady", "Larz/Aviara", "Adesh (Modern)", "Speedy (Modern)", "Jet-Man (Classic)", "Jet-Man (Red Suit)", "Jet-Man (Golden Suit)", "Jet-Man (Home-made)", "Charlie (Labcoat)", "Charlie (Black Suit)", "Talking Ginger", "Clothy (Modern)",
-"Super Paper", "Doctor", "Brian/Bald Eye Patch", "Buzz Leg/Footloose", "Pearl", "Flowish", "Leafy Jr.", "Tulip", "Ava/Cat Lady (Bikini)", "Judah/Jet-Man (Civilian)",
-"Isaiah/Stronge (Civilian)", "Stronge (Green Suit)", "Bubble Man", "Art Girl (Classic)", "Donnie (Klipper)", "Black Perfume's Dad", "Jetta Dél Rio", "Lily (Liliann) Melody", "Matt (Matthew) Adams", "Nate (Nathan) Johnson",
-"The Artist (Tech)", "Ice Stick", "Ezekiel/Lightning Stick", "Hannah (Classic)", "Kenny (Classic)", "Salt", "Milk", "Bowl", "Oil", "Dividen",
-"Ivan/Ice Pen (Classic)", "Super Magnet's Son", "The Artist (Armor)", "Fire Stick", "Earth Stick", "Air Stick", "Energy Stick", "Flame (Classic)", "Art Girl (Unmasked)", "Wheezy (Sheriff)", "Sulley", "Rex (Classic)", "Guitar", "Monster", "Monstrosity", "Reindeer & Egg", "Covered (Classic)",
-"The Artist (Ninja)", "Goofy (HQ)", "The Artist (Modern)", "Plainty", "Blocky", "Sarge", "Smacky (Old)", "Stephen", "Jocelyn", "Adesh (HQ)",
-"Art", "A-Boy (Classic)", "Hybro's Bros", "White-Off", "Black Widow", "Nick Fury", "Key's Son", "Lock's Son", "Lock (Younger)", "Lock (Old)",
-"Super Paper (Modern)", "Super Magnet (Modern)", "Marty (Black)", "Marty (Younger)", "Bella the Pig (Yellow)", "Joel (Old)"
+        "DavidArtsy",
+        "Boxlunch Killer",
+        "Big Greene",
+        "James the Watch",
+        "Ezekiel Johnson/Space Pen",
+        "Pebbles",
+        "Eddie",
+        "Kenny",
+        "Smacky",
+        "A-Bomb",
+        "The Artist"
     ];
 
-    const assets = { 
-        road: new Image(), road2: new Image(), road3: new Image(), 
-        magnet: new Image(), shield: new Image(), 
+    const assets = {
+        road: new Image(), road2: new Image(), road3: new Image(),
+        magnet: new Image(), shield: new Image(),
         multiplier: new Image(), obsLow: new Image(), obsHigh: new Image(), coin: new Image()
     };
     assets.road.src = 'images/road.png';
     assets.road2.src = 'images/road2.png';
     assets.road3.src = 'images/road3.png';
-    
+
     assets.magnet.src = 'images/magnet.png';
     assets.shield.src = 'images/shield.png'; assets.multiplier.src = 'images/multiplier.png';
     assets.obsLow.src = 'images/obstacle_low.png'; assets.obsHigh.src = 'images/obstacle_high.png';
@@ -207,16 +47,17 @@ html, body {
     let powerTimer = 0, activePower = null, playerYOffset = 0, playerJumpVal = 0, isSliding = false, slideTimer = 0;
     let reviveCost = 5, isPaused = false, currentPreviewingChar = null;
 
+    // CHANGED: Only 11 characters now
     let characters = [];
-    for(let i=1; i<=476; i++){
-        characters.push({ 
-            id: i, 
-            name: castaNames[i-1] || `Casta #${i}`, 
-            imgSrc: `images/casta${i}.png`, 
+    for(let i=1; i<=11; i++){
+        characters.push({
+            id: i,
+            name: castaNames[i-1],
+            imgSrc: `images/casta${i}.png`,
             img: null,
-            cost: i===1 ? 0 : i*100, 
-            unlocked: i===1 || localStorage.getItem('unlocked_'+i) === 'true', 
-            color: `hsl(${i*37}, 70%, 50%)` 
+            cost: i===1? 0 : i*500, // First free, others cost 500, 1000, 1500... etc
+            unlocked: i===1 || localStorage.getItem('unlocked_'+i) === 'true',
+            color: `hsl(${i*33}, 70%, 50%)`
         });
     }
 
@@ -228,9 +69,8 @@ html, body {
         document.getElementById('previewName').innerText = char.name;
         document.getElementById('largeImg').src = char.imgSrc;
         const ability = document.getElementById('abilityText');
-        if(char.name === "Super Magnet") ability.innerText = "⭐ ABILITY: PERMANENT MAGNET";
-        else if(char.name === "Bella The Pig") ability.innerText = "⭐ ABILITY: 2X COINS & OINK!";
-            else if(char.name === "Unstoppable Metal Beast") ability.innerText = "⭐ ABILITY: INVINCIBLE SMASH!";
+        if(char.name === "Big Greene") ability.innerText = "⭐ ABILITY: 2X COINS";
+        else if(char.name === "Ezekiel Johnson/Space Pen") ability.innerText = "⭐ ABILITY: PERMANENT MAGNET";
         else ability.innerText = "";
         const btn = document.getElementById('previewActionBtn');
         const status = document.getElementById('previewStatus');
@@ -265,7 +105,7 @@ html, body {
         if(code === "CAU75") {
             characters.forEach(c => { c.unlocked = true; localStorage.setItem('unlocked_'+c.id, 'true'); });
             totalCoins += 99999; localStorage.setItem('casta_bank', totalCoins);
-            alert("ALL CHARACTERS UNLOCKED & 99,999 COINS!");
+            alert("ALL 11 CHARACTERS UNLOCKED & 99,999 COINS!");
             initMenu();
         }
     }
@@ -287,33 +127,32 @@ html, body {
     }
 
     function togglePause() {
-        if(gameState !== 'playing') return;
-        isPaused = !isPaused;
-        document.getElementById('pauseBtn').innerText = isPaused ? 'RESUME' : 'PAUSE';
+        if(gameState!== 'playing') return;
+        isPaused =!isPaused;
+        document.getElementById('pauseBtn').innerText = isPaused? 'RESUME' : 'PAUSE';
         if(isPaused) sounds.bg.pause(); else if(!isMuted) sounds.bg.play().catch(()=>{});
     }
 
     function toggleMute() {
-        isMuted = !isMuted; Object.values(sounds).forEach(s => s.muted = isMuted);
-        document.getElementById('muteBtn').innerText = isMuted ? '🔇' : '🔊';
+        isMuted =!isMuted; Object.values(sounds).forEach(s => s.muted = isMuted);
+        document.getElementById('muteBtn').innerText = isMuted? '🔇' : '🔊';
     }
 
     function startGame() {
         document.getElementById('menu').style.display = 'none';
         const liveUI = document.getElementById('liveIntro');
-    if(liveUI) {
-        document.getElementById('liveCharImg').src = selectedChar.imgSrc;
-        liveUI.style.display = 'flex';
-        setTimeout(() => { liveUI.style.display = 'none'; }, 10000);
-            }
+        if(liveUI) {
+            document.getElementById('liveCharImg').src = selectedChar.imgSrc;
+            liveUI.style.display = 'flex';
+            setTimeout(() => { liveUI.style.display = 'none'; }, 10000);
+        }
         score = 0; coins = 0; villain.active = false;
-    villain.y = -100; entities = []; currentLane = 1; speed = 7;
+        villain.y = -100; entities = []; currentLane = 1; speed = 7;
         visualX = (canvas.width / 3) + (canvas.width / 6) - 35;
         powerTimer = 0; activePower = null; playerYOffset = 0; reviveCost = 5; isPaused = false;
         lastTime = performance.now();
-        if(!isMuted) { 
+        if(!isMuted) {
             sounds.bg.currentTime = 0; sounds.bg.play().catch(()=>{});
-            if(selectedChar.name === "Bella The Pig") sounds.oink.play().catch(()=>{});
         }
         gameState = 'playing'; update();
     }
@@ -339,31 +178,30 @@ html, body {
     let tStart = {x:0, y:0};
     window.addEventListener('touchstart', e => { tStart.x = e.touches[0].clientX; tStart.y = e.touches[0].clientY; }, {passive: false});
     window.addEventListener('touchend', e => {
-        if(gameState !== 'playing' || isPaused) return;
+        if(gameState!== 'playing' || isPaused) return;
         let dx = e.changedTouches[0].clientX - tStart.x, dy = e.changedTouches[0].clientY - tStart.y;
         if(Math.abs(dx) > Math.abs(dy)){
             if(dx > 30 && currentLane < 2) currentLane++;
             if(dx < -30 && currentLane > 0) currentLane--;
         } else {
-            if(dy < -30 && playerYOffset === 0) playerJumpVal = 22; 
-            if(dy > 30) { isSliding = true; slideTimer = 35; if(playerYOffset < 0) playerJumpVal = -15; } 
+            if(dy < -30 && playerYOffset === 0) playerJumpVal = 22;
+            if(dy > 30) { isSliding = true; slideTimer = 35; if(playerYOffset < 0) playerJumpVal = -15; }
         }
     });
 
     function update(timestamp) {
-        if(gameState !== 'playing' || isPaused) { if(isPaused) { lastTime = timestamp; requestAnimationFrame(update); } return; }
+        if(gameState!== 'playing' || isPaused) { if(isPaused) { lastTime = timestamp; requestAnimationFrame(update); } return; }
         ctx.clearRect(0,0,canvas.width, canvas.height);
         let delta = (timestamp - lastTime) / 1000;
         if(!isNaN(delta)) {
-            let scoreGain = (activePower === 'MULTIPLIER') ? 200 : 100;
+            let scoreGain = (activePower === 'MULTIPLIER')? 200 : 100;
             score += scoreGain * delta; runCycle += delta * 5;
             roadScrollY += speed; if(roadScrollY >= canvas.height) roadScrollY = 0;
         }
         lastTime = timestamp;
 
-        // --- START MULTI-STAGE ROAD SYSTEM ---
-        let currentRoad = assets.road; 
-        let stage = Math.floor(score / 10000) % 3; 
+        let currentRoad = assets.road;
+        let stage = Math.floor(score / 10000) % 3;
 
         if (stage === 1 && assets.road2.complete) {
             currentRoad = assets.road2;
@@ -375,14 +213,13 @@ html, body {
             ctx.drawImage(currentRoad, 0, roadScrollY, canvas.width, canvas.height);
             ctx.drawImage(currentRoad, 0, roadScrollY - canvas.height, canvas.width, canvas.height);
         } else {
-            ctx.fillStyle = '#111'; 
+            ctx.fillStyle = '#111';
             ctx.fillRect(0,0,canvas.width,canvas.height);
         }
-        // --- END MULTI-STAGE ROAD SYSTEM ---
 
-                let targetX = currentLane * (canvas.width / 3) + (canvas.width / 6) - 35;
+        let targetX = currentLane * (canvas.width / 3) + (canvas.width / 6) - 35;
         visualX += (targetX - visualX) * 0.15;
-        if(playerJumpVal !== 0 || playerYOffset < 0){
+        if(playerJumpVal!== 0 || playerYOffset < 0){
             playerYOffset -= playerJumpVal; playerJumpVal -= 1.2;
             if(playerYOffset > 0) { playerYOffset = 0; playerJumpVal = 0; }
         }
@@ -391,38 +228,30 @@ html, body {
         if(Math.floor(score/10) % 7 === 0 && Math.random() < 0.15) {
             let lane = Math.floor(Math.random()*3);
             let r = Math.random();
-            let type = r > 0.94 ? 'magnet' : (r > 0.88 ? 'shield' : (r > 0.82 ? 'multiplier' : (r > 0.4 ? 'coin' : (Math.random() > 0.5 ? 'obsLow' : 'obsHigh'))));
+            let type = r > 0.94? 'magnet' : (r > 0.88? 'shield' : (r > 0.82? 'multiplier' : (r > 0.4? 'coin' : (Math.random() > 0.5? 'obsLow' : 'obsHigh'))));
             entities.push({ lane, x: lane * (canvas.width/3) + (canvas.width/6) - 20, y: -100, type });
         }
 
         entities.forEach((en, i) => {
             en.y += speed;
-            if((activePower === 'MAGNET' || (selectedChar.name === "Super Magnet" && selectedChar.unlocked)) && en.type === 'coin') {
+            if((activePower === 'MAGNET' || selectedChar.name === "Ezekiel Johnson/Space Pen") && en.type === 'coin') {
                 en.x += (visualX + 15 - en.x) * 0.25;
             }
             let img = assets[en.type];
             if(img && img.complete && img.width > 0) ctx.drawImage(img, en.x, en.y, 50, 50);
-            else { ctx.fillStyle = en.type === 'coin' ? '#ffd700' : '#ff00ff'; ctx.beginPath(); ctx.arc(en.x+25, en.y+25, 20, 0, Math.PI*2); ctx.fill(); }
-            
+            else { ctx.fillStyle = en.type === 'coin'? '#ffd700' : '#ff00ff'; ctx.beginPath(); ctx.arc(en.x+25, en.y+25, 20, 0, Math.PI*2); ctx.fill(); }
+
             let midY = canvas.height / 2;
             if(Math.abs(en.x - (visualX+10)) < 45 && en.y > midY + playerYOffset && en.y < midY + 120) {
                 if(en.type === 'coin') {
                     if(!isMuted) { sounds.coin.currentTime = 0; sounds.coin.play().catch(()=>{}); }
-                    let coinVal = (activePower === 'MULTIPLIER' ? 3 : 1);
-                    if(selectedChar.name === "Bella The Pig") coinVal *= 2;
+                    let coinVal = (activePower === 'MULTIPLIER'? 3 : 1);
+                    if(selectedChar.name === "Big Greene") coinVal *= 2;
                     coins += coinVal;
                     entities.splice(i, 1);
                 } else if(en.type.startsWith('obs')) {
                     if(!((en.type === 'obsLow' && playerYOffset < -35) || (en.type === 'obsHigh' && isSliding))) {
                         if(activePower === 'SHIELD') { activePower = null; powerTimer = 0; entities.splice(i, 1); }
-                            
-                        // --- NEW INVINCIBILITY CODE STARTS HERE ---
-                        else if(selectedChar.name === "Unstoppable Metal Beast") {
-                            // Instead of dying, we just remove the obstacle!
-                            entities.splice(i, 1); 
-                        } 
-                        // --- NEW INVINCIBILITY CODE ENDS HERE ---
-                            
                         else { triggerDeath(); }
                     }
                 } else {
@@ -434,18 +263,16 @@ html, body {
             if(en.y > canvas.height) entities.splice(i,1);
         });
 
-        // PLAYER DRAWING
         let swirlX = Math.sin(runCycle * Math.PI) * 15;
         let stretch = Math.sin(runCycle * Math.PI * 2) * 0.1;
         ctx.save();
         ctx.translate(visualX + 35 + swirlX, (canvas.height / 2) + playerYOffset + 50);
-        ctx.rotate((targetX - visualX) * 0.05); 
+        ctx.rotate((targetX - visualX) * 0.05);
         if(isSliding) { ctx.scale(1.4, 0.4); ctx.translate(0, 50); }
         else if(playerYOffset < -10) { ctx.scale(0.8, 1.2); }
         else { ctx.scale(1 + stretch, 1 - stretch); }
 
-        // Bulletproof Check:
-        if(selectedChar.img && selectedChar.img.complete && selectedChar.img.naturalWidth !== 0) {
+        if(selectedChar.img && selectedChar.img.complete && selectedChar.img.naturalWidth!== 0) {
             ctx.drawImage(selectedChar.img, -35, -50, 70, 100);
         } else {
             ctx.fillStyle = selectedChar.color || 'green';
@@ -459,9 +286,9 @@ html, body {
             if(activePower === 'MULTIPLIER') { notify.innerText = "SCORE X2 & BONUS COINS!"; notify.style.color = "#fbff00"; }
             else if(activePower === 'SHIELD') { notify.innerText = "SHIELD ACTIVE"; notify.style.color = "#00ffff"; }
             else if(activePower === 'MAGNET') { notify.innerText = "MAGNET ON"; notify.style.color = "#ff00ff"; }
-        } else { 
-            activePower = null; 
-            notify.innerText = (selectedChar.name === "Super Magnet" && selectedChar.unlocked) ? "MAGNET ALWAYS ON" : ""; 
+        } else {
+            activePower = null;
+            notify.innerText = (selectedChar.name === "Ezekiel Johnson/Space Pen")? "MAGNET ALWAYS ON" : "";
             notify.style.color = "white";
         }
         speed += 0.0005;
@@ -469,7 +296,7 @@ html, body {
         document.getElementById('scoreDisplay').innerText = Math.floor(score);
 
         updateVillain(ctx, canvas, visualX, delta);
-        
+
         requestAnimationFrame(update);
     }
 
@@ -484,10 +311,7 @@ html, body {
     canvas.width = window.innerWidth; canvas.height = window.innerHeight;
     initMenu();
 
- // === MISSION SYSTEM V3 ===
-    console.log("Mission System Loading...");
-
-    // 1. Setup Variables
+    // MISSION SYSTEM - still works with 11 chars
     const mData = {
         lvl: parseInt(localStorage.getItem('casta_level')) || 1,
         prog: 0,
@@ -495,16 +319,13 @@ html, body {
         isJumping: false, lastSlide: false, lastPower: null, lastCoins: 0
     };
 
-    // 2. Create UI Element manually so it MUST show up
     const mUI = document.createElement('div');
     mUI.id = "mDisplay";
     mUI.style = "position:fixed; bottom:100px; left:20px; color:#00ffff; z-index:9999; font-family:sans-serif; font-weight:bold; text-shadow:2px 2px #000; pointer-events:none; display:none;";
     document.body.appendChild(mUI);
 
-    // 3. The Logic Loop
     setInterval(() => {
-        // Only show if playing
-        if (typeof gameState !== 'undefined' && gameState === 'playing' && !isPaused) {
+        if (typeof gameState!== 'undefined' && gameState === 'playing' &&!isPaused) {
             mUI.style.display = 'block';
         } else {
             mUI.style.display = 'none';
@@ -515,193 +336,10 @@ html, body {
         let target = 10 + (mData.lvl * 3);
         let goalText = mData.types[typeIdx];
 
-        // JUMP (Checks if player is in air)
         if (typeIdx === 0) {
-            if (playerYOffset < -5 && !mData.isJumping) { mData.prog++; mData.isJumping = true; }
+            if (playerYOffset < -5 &&!mData.isJumping) { mData.prog++; mData.isJumping = true; }
             if (playerYOffset === 0) mData.isJumping = false;
         }
-        // SLIDE
-        if (typeIdx === 1 && isSliding && !mData.lastSlide) mData.prog++;
+        if (typeIdx === 1 && isSliding &&!mData.lastSlide) mData.prog++;
         mData.lastSlide = isSliding;
-        // COINS
-        if (typeIdx === 2 && coins > mData.lastCoins) { mData.prog += (coins - mData.lastCoins); }
-        mData.lastCoins = coins;
-        // POWERUPS
-        if (typeIdx === 3 && activePower !== mData.lastPower && activePower !== null) mData.prog++;
-        mData.lastPower = activePower;
-
-        // Update Text
-        mUI.innerHTML = `LVL ${mData.lvl} MISSION: ${goalText}<br>PROGRESS: ${mData.prog} / ${target}`;
-
-        // Win Condition
-        if (mData.prog >= target) {
-            let reward = mData.lvl * 100;
-            totalCoins += reward;
-            mData.lvl++;
-            mData.prog = 0;
-            localStorage.setItem('casta_level', mData.lvl);
-            localStorage.setItem('casta_bank', totalCoins);
-            alert("MISSION COMPLETE!\nReward: 🪙" + reward);
-            lastTime = performance.now();
-        }
-    }, 50);
-
-
-    // === DAILY REWARDS SYSTEM ===
-    function checkDailyReward() {
-        const lastClaim = localStorage.getItem('casta_last_claim');
-        const now = Date.now();
-        const oneDay = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-
-        if (!lastClaim || (now - lastClaim) > oneDay) {
-            // It has been more than 24 hours
-            totalCoins += 1000;
-            localStorage.setItem('casta_bank', totalCoins);
-            localStorage.setItem('casta_last_claim', now);
-            
-            // Show the reward message after a tiny delay so the menu can load
-            setTimeout(() => {
-                alert("🎁 DAILY REWARD!\nYou received 🪙1,000 coins!\nCome back tomorrow for more.");
-                initMenu(); // Refresh the coin display on the menu
-            }, 500);
-        }
-    }
-
-    // Run the check when the script loads
-    checkDailyReward();
-
-// === THE "CASTASTICS" RARITY SYNC ===
-(function() {
-    const rUI = document.createElement('div');
-rUI.id = 'rarity-display-final';
-// Change left:20px to the center formula:
-rUI.style = "position:fixed; top:20px; left:50%; transform:translateX(-50%); font-family:sans-serif; font-weight:bold; font-size:22px; text-shadow: 2px 2px #000; z-index:99999; pointer-events:none; line-height:1.1; white-space:nowrap; text-align:center; color:white;";
-document.body.appendChild(rUI);
-
-    function update() {
-        // 1. Get the list of characters
-        let list = window.characters || [];
-        
-        // 2. Identify which character to show
-        // We check your 'currentPreviewingChar' first, then 'selectedChar'
-        let charObj = (typeof currentPreviewingChar !== 'undefined' && currentPreviewingChar !== null) 
-                      ? currentPreviewingChar 
-                      : (typeof selectedChar !== 'undefined' ? selectedChar : null);
-
-        if (!charObj) return;
-
-        // 3. Find the ID (since your IDs start at 1, we subtract 1 for the index)
-        let idx = charObj.id - 1;
-        let name = charObj.name || "Runner";
-        let color = "#FFFFFF"; 
-        let rank = "COMMON";
-
-        // 4. Rarity Logic
-        if (idx >= 393) { color = "#FF00FF"; rank = "MYTHIC"; } 
-        else
-        if (idx >= 349) { color = "#FFD700"; rank = "LEGENDARY"; } 
-        else if (idx >= 249) { color = "#BF00FF"; rank = "EPIC"; }      
-        else if (idx >= 149) { color = "#00CCFF"; rank = "RARE"; }      
-
-        // 5. Update the Screen
-rUI.style.color = color;
-rUI.innerHTML = `<span style="font-size:10px; opacity:0.8; display:block; letter-spacing:1.5px;">${rank}</span>${name.toUpperCase()}`;
-        
-// We only check for the menus/previewer
-let previewVisible = document.getElementById('previewer').style.display === 'flex';
-let menuVisible = document.getElementById('menu').style.display === 'flex';
-
-// Only 'block' (show) if a menu is open. If the game starts, this becomes 'none' (hide).
-rUI.style.display = (previewVisible || menuVisible) ? 'block' : 'none';
-} setInterval(update, 200);
-})();
-        
-    // === VILLAIN SIDE-QUEST SYSTEM ===
-const villain = {
-    active: false,
-    x: 0,
-    y: -100,
-    targetX: 0,
-    timer: 0,
-    lastShot: 0,
-    hp: 1 // Just for visual tracking
-};
-
-function triggerVillainQuest() {
-    if (villain.active) return;
-    villain.img = null; //
-    villain.active = true;
-    villain.timer = 1000; // 20 seconds roughly (at 50fps)
-    villain.y = -100;
-    document.getElementById('powerNotify').innerText = "VILLAIN ATTACK!";
-    document.getElementById('powerNotify').style.color = "red";
-}
-
-function updateVillain(ctx, canvas, visualX, delta) {
-    if (!villain.active) {
-        // Trigger every 5000 score (approx)
-        if (Math.floor(score) % 5000 === 0 && score > 100) triggerVillainQuest();
-        return;
-    }
-
-    // 1. Move Villain onto screen and follow player's X
-    villain.y = Math.min(villain.y + 2, 50); 
-    villain.targetX = visualX;
-    villain.x += (villain.targetX - villain.x) * 0.05;
-
-    // 2. Draw Villain (Random Image Version)
-    ctx.save();
-    
-    // Create the image objects if they don't exist
-    if (!villain.img) {
-        villain.img = new Image();
-        // Picks a number between 1 and 3
-        let randomNum = Math.floor(Math.random() * 3) + 1;
-        villain.img.src = `images/villain${randomNum}.png`;
-    }
-
-    ctx.shadowBlur = 20;
-    ctx.shadowColor = "red";
-    
-    if(villain.img.complete) {
-        ctx.drawImage(villain.img, villain.x, villain.y, 80, 80);
-    } else {
-        // Red triangle fallback while image loads
-        ctx.fillStyle = "red";
-        ctx.beginPath();
-        ctx.moveTo(villain.x+40, villain.y);
-        ctx.lineTo(villain.x, villain.y+70);
-        ctx.lineTo(villain.x+80, villain.y+70);
-        ctx.fill();
-    }
-    ctx.restore();
-
-    // 3. Shooting Logic
-    villain.timer--;
-    if (Date.now() - villain.lastShot > 1200) { // Shoot every 1.2 seconds
-        entities.push({ 
-            lane: currentLane, 
-            x: villain.x + 25, 
-            y: villain.y + 60, 
-            type: 'obsHigh', // Reuse high obstacle logic
-            isLaser: true 
-        });
-        villain.lastShot = Date.now();
-    }
-
-    // 4. End Quest
-    if (villain.timer <= 0) {
-        villain.y -= 5;
-        if (villain.y < -100) {
-            villain.active = false;
-            document.getElementById('powerNotify').innerText = "QUEST COMPLETE! +500 COINS";
-            totalCoins += 500;
-            localStorage.setItem('casta_bank', totalCoins);
-        }
-    }
-}
-
-    
-</script>
-</body>
-</html>
+        if (typeIdx === 2 && coins > mData.lastCoins) { mData.prog += (coins - m
