@@ -1,3 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Castastics Master Runner</title>
+    <style>
+html, body {
+            overscroll-behavior-y: none;
+            touch-action: pan-x pan-y;
+}
+        body { margin: 0; overflow: hidden; background: #000; font-family: 'Arial Black', sans-serif; color: white; }
+        #gameUI { position: absolute; top: 10px; left: 15px; z-index: 10; pointer-events: none; text-shadow: 2px 2px #000; width: 100%; }
+        #menu, #reviveMenu, #previewer { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; padding: 20px; text-align: center; }
+        #reviveMenu, #previewer { display: none; z-index: 25; }
+       .char-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; max-height: 40vh; overflow-y: scroll; padding: 10px; border: 2px solid #444; background: #111; width: 90%; border-radius: 10px; }
+       .char-card { border: 2px solid #444; padding: 8px; text-align: center; border-radius: 8px; background: #222; font-size: 10px; }
+       .char-card.selected { border-color: #00ff00; background: #004400; }
+        #largeImg { width: 180px; height: 180px; object-fit: contain; margin: 20px 0; border: 4px solid #00ff00; border-radius: 15px; background: #111; padding: 10px; }
+        button { padding: 18px 40px; font-size: 22px; background: #00ff00; border: none; border-radius: 50px; font-weight: bold; cursor: pointer; color: #000; margin: 5px; }
+       .secondary-btn { background: #555; color: white; font-size: 16px; padding: 10px 25px; }
+        #muteBtn { position: absolute; bottom: 20px; right: 20px; background: #333; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; z-index: 30; }
+        #pauseBtn { position: absolute; top: 15px; right: 15px; z-index: 30; background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 8px 15px; border-radius: 5px; pointer-events: auto; }
+    </style>
+</head>
+<body>
+
+    <div id="videoIntro" style="position:fixed; inset:0; background:#000; z-index:100000; display:flex; align-items:center; justify-content:center;">
+    <video id="trailerVideo" style="width:100%; height:100%; object-fit:contain;" autoplay muted playsinline>
+        <source src="images/trailer.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+    <button id="skipBtn" style="position:absolute; bottom:30px; right:20px; padding:10px 20px; font-size:14px; background:rgba(255,255,255,0.3); color:white; border:1px solid white; border-radius:5px; z-index:100001;">SKIP</button>
+</div>
+
+<script>
+    const introOverlay = document.getElementById('videoIntro');
+    const video = document.getElementById('trailerVideo');
+    const skipBtn = document.getElementById('skipBtn');
+    function finishVideo() {
+        video.pause();
+        introOverlay.style.display = 'none';
+        if(typeof initMenu === 'function') initMenu();
+    }
+    video.onended = finishVideo;
+    skipBtn.onclick = finishVideo;
+    window.addEventListener('click', () => {
+        video.muted = false;
+    }, { once: true });
+</script>
+
+<div id="gameUI" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+    <div style="position: absolute; top: 10px; left: 10px; text-align: left; pointer-events: auto;">
+        <div style="color: #ffd700; font-size: 24px; text-shadow: 2px 2px 4px #000;">🪙 <span id="coinCount">0</span></div>
+        <div style="font-size: 14px; color: #00ff00; text-shadow: 1px 1px 2px #000; font-weight: bold;">BEST: <span id="highScoreDisplay">0</span></div>
+        <div style="font-size: 18px; color: #fff; text-shadow: 1px 1px 2px #000; font-weight: bold;">SCORE: <span id="scoreDisplay">0</span></div>
+    </div>
+    <div id="powerNotify" style="position: absolute; top: 80px; left: 10px; white-space: nowrap; font-weight: bold; text-shadow: 2px 2px 5px #000; color: #ff00ff; z-index: 100;"></div>
+    <div style="position: absolute; top: 10px; right: 10px; pointer-events: auto;">
+        <button id="pauseBtn" onclick="togglePause()" style="background: rgba(0,0,0,0.5); color: white; border: 2px solid white; border-radius: 8px; padding: 8px 15px; font-weight: bold;">PAUSE</button>
+    </div>
+</div>
+
+<div id="menu">
+    <h1 style="color:#00ff00; margin: 0; font-style: italic; cursor: pointer; pointer-events: auto;" onclick="checkCheat()">CASTASTICS</h1>
+    <div style="color:#ffd700; margin: 5px 0;">BANK: 🪙 <span id="totalCoinsDisplay">0</span></div>
+    <div class="char-grid" id="charGrid"></div>
+    <button onclick="startGame()">RUN!</button>
+</div>
+
+<div id="previewer">
+    <h2 id="previewName">CHARACTER NAME</h2>
+    <div id="abilityText" style="color:#00ffff; font-size:12px; margin-bottom:5px;"></div>
+    <img id="largeImg" src="" alt="Preview" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='">
+    <div id="previewStatus" style="margin-bottom: 20px; font-weight: bold;">COST: 🪙100</div>
+    <button id="previewActionBtn" onclick="handlePreviewAction()">SELECT</button>
+    <button class="secondary-btn" onclick="closePreviewer()">BACK</button>
+</div>
+
+<div id="reviveMenu">
+    <h2 style="color:#ffd700;">CRASHED!</h2>
+    <p>Revive for 🪙 <span id="reviveCostText">5</span>?</p>
+    <button onclick="revivePlayer()">REVIVE</button>
+    <button class="secondary-btn" onclick="endGamePermanently()">NO THANKS</button>
+</div>
+
+<button id="muteBtn" onclick="toggleMute()">🔊</button>
+<div id="liveIntro" style="position: absolute; bottom: 40%; left: 10px; z-index: 100; display: none; align-items: center; pointer-events: none;">
+    <img id="liveCharImg" src="" style="height: 180px; width: auto; object-fit: contain; filter: drop-shadow(2px 2px 5px rgba(0,0,0,0.5));">
+    <div style="background: white; color: black; padding: 10px; border-radius: 10px; font-weight: bold; font-size: 12px; max-width: 150px; margin-left: -10px; border: 2px solid #000;">
+        Swipe up to jump, down to slide, left/right to move! Collect coins and powerups! Go!
+    </div>
+</div>
+<canvas id="gameCanvas"></canvas>
+
 <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -25,7 +120,6 @@
     assets.road.src = 'images/road.png';
     assets.road2.src = 'images/road2.png';
     assets.road3.src = 'images/road3.png';
-
     assets.magnet.src = 'images/magnet.png';
     assets.shield.src = 'images/shield.png'; assets.multiplier.src = 'images/multiplier.png';
     assets.obsLow.src = 'images/obstacle_low.png'; assets.obsHigh.src = 'images/obstacle_high.png';
@@ -55,7 +149,7 @@
             name: castaNames[i-1],
             imgSrc: `images/casta${i}.png`,
             img: null,
-            cost: i===1? 0 : i*500, // First free, others cost 500, 1000, 1500... etc
+            cost: i===1? 0 : i*500,
             unlocked: i===1 || localStorage.getItem('unlocked_'+i) === 'true',
             color: `hsl(${i*33}, 70%, 50%)`
         });
@@ -202,13 +296,11 @@
 
         let currentRoad = assets.road;
         let stage = Math.floor(score / 10000) % 3;
-
         if (stage === 1 && assets.road2.complete) {
             currentRoad = assets.road2;
         } else if (stage === 2 && assets.road3.complete) {
             currentRoad = assets.road3;
         }
-
         if(currentRoad.complete && currentRoad.width > 0) {
             ctx.drawImage(currentRoad, 0, roadScrollY, canvas.width, canvas.height);
             ctx.drawImage(currentRoad, 0, roadScrollY - canvas.height, canvas.width, canvas.height);
@@ -296,7 +388,6 @@
         document.getElementById('scoreDisplay').innerText = Math.floor(score);
 
         updateVillain(ctx, canvas, visualX, delta);
-
         requestAnimationFrame(update);
     }
 
@@ -311,7 +402,7 @@
     canvas.width = window.innerWidth; canvas.height = window.innerHeight;
     initMenu();
 
-    // MISSION SYSTEM - still works with 11 chars
+ // === MISSION SYSTEM V3 ===
     const mData = {
         lvl: parseInt(localStorage.getItem('casta_level')) || 1,
         prog: 0,
@@ -331,11 +422,9 @@
             mUI.style.display = 'none';
             return;
         }
-
         let typeIdx = (mData.lvl - 1) % 4;
         let target = 10 + (mData.lvl * 3);
         let goalText = mData.types[typeIdx];
-
         if (typeIdx === 0) {
             if (playerYOffset < -5 &&!mData.isJumping) { mData.prog++; mData.isJumping = true; }
             if (playerYOffset === 0) mData.isJumping = false;
@@ -346,9 +435,7 @@
         mData.lastCoins = coins;
         if (typeIdx === 3 && activePower!== mData.lastPower && activePower!== null) mData.prog++;
         mData.lastPower = activePower;
-
         mUI.innerHTML = `LVL ${mData.lvl} MISSION: ${goalText}<br>PROGRESS: ${mData.prog} / ${target}`;
-
         if (mData.prog >= target) {
             let reward = mData.lvl * 100;
             totalCoins += reward;
@@ -361,7 +448,7 @@
         }
     }, 50);
 
-    // DAILY REWARDS
+    // === DAILY REWARDS SYSTEM ===
     function checkDailyReward() {
         const lastClaim = localStorage.getItem('casta_last_claim');
         const now = Date.now();
@@ -378,7 +465,7 @@
     }
     checkDailyReward();
 
-    // RARITY SYNC - updated for 11 chars
+    // === RARITY SYNC - updated for 11 chars ===
     (function() {
         const rUI = document.createElement('div');
         rUI.id = 'rarity-display-final';
@@ -386,33 +473,27 @@
         document.body.appendChild(rUI);
 
         function update() {
-            let list = window.characters || [];
             let charObj = (typeof currentPreviewingChar!== 'undefined' && currentPreviewingChar!== null)
                          ? currentPreviewingChar
                           : (typeof selectedChar!== 'undefined'? selectedChar : null);
             if (!charObj) return;
-
             let idx = charObj.id - 1;
             let name = charObj.name || "Runner";
             let color = "#FFFFFF";
             let rank = "COMMON";
-
-            // New rarity tiers for 11 chars
             if (idx >= 9) { color = "#FF00FF"; rank = "MYTHIC"; }
             else if (idx >= 7) { color = "#FFD700"; rank = "LEGENDARY"; }
             else if (idx >= 5) { color = "#BF00FF"; rank = "EPIC"; }
             else if (idx >= 3) { color = "#00CCFF"; rank = "RARE"; }
-
             rUI.style.color = color;
             rUI.innerHTML = `<span style="font-size:10px; opacity:0.8; display:block; letter-spacing:1.5px;">${rank}</span>${name.toUpperCase()}`;
-
             let previewVisible = document.getElementById('previewer').style.display === 'flex';
             let menuVisible = document.getElementById('menu').style.display === 'flex';
             rUI.style.display = (previewVisible || menuVisible)? 'block' : 'none';
         } setInterval(update, 200);
     })();
 
-    // VILLAIN SIDE-QUEST
+    // === VILLAIN SIDE-QUEST SYSTEM ===
     const villain = {
         active: false,
         x: 0,
@@ -441,7 +522,6 @@
         villain.y = Math.min(villain.y + 2, 50);
         villain.targetX = visualX;
         villain.x += (villain.targetX - villain.x) * 0.05;
-
         ctx.save();
         if (!villain.img) {
             villain.img = new Image();
@@ -461,7 +541,6 @@
             ctx.fill();
         }
         ctx.restore();
-
         villain.timer--;
         if (Date.now() - villain.lastShot > 1200) {
             entities.push({
@@ -483,4 +562,6 @@
             }
         }
     }
-    </script>
+</script>
+</body>
+    </html>
