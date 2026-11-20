@@ -758,9 +758,9 @@ const castaNames = [
             let name = charObj.name || "Runner";
             let color = "#FFFFFF";
             let rank = "COMMON";
-            if (idx >= 9) { color = "#FF00FF"; rank = "MYTHIC"; }
-            else if (idx >= 200) { color = "#FFD700"; rank = "LEGENDARY"; }
-            else if (idx >= 150) { color = "#BF00FF"; rank = "EPIC"; }
+            if (idx >= 200) { color = "#FF00FF"; rank = "MYTHIC"; }
+            else if (idx >= 150) { color = "#FFD700"; rank = "LEGENDARY"; }
+            else if (idx >= 100) { color = "#BF00FF"; rank = "EPIC"; }
             else if (idx >= 50) { color = "#00CCFF"; rank = "RARE"; }
             rUI.style.color = color;
             rUI.innerHTML = `<span style="font-size:10px; opacity:0.8; display:block; letter-spacing:1.5px;">${rank}</span>${name.toUpperCase()}`;
