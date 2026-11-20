@@ -807,16 +807,16 @@ const castaNames = [
         }
         ctx.shadowBlur = 20;
         ctx.shadowColor = "red";
-        if(villain.img.complete) {
-            ctx.drawImage(villain.img, villain.x, villain.y, 80, 80);
-        } else {
-            ctx.fillStyle = "red";
-            ctx.beginPath();
-            ctx.moveTo(villain.x+40, villain.y);
-            ctx.lineTo(villain.x, villain.y+70);
-            ctx.lineTo(villain.x+80, villain.y+70);
-            ctx.fill();
-        }
+if(villain.img.complete) {
+    ctx.drawImage(villain.img, villain.x, villain.y, 120, 120);
+} else {
+    ctx.fillStyle = "red";
+    ctx.beginPath();
+    ctx.moveTo(villain.x+60, villain.y);
+    ctx.lineTo(villain.x, villain.y+105);
+    ctx.lineTo(villain.x+120, villain.y+105);
+    ctx.fill();
+    }
         ctx.restore();
         villain.timer--;
         if (Date.now() - villain.lastShot > 1200) {
