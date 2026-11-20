@@ -21,6 +21,26 @@ html, body {
        .secondary-btn { background: #555; color: white; font-size: 16px; padding: 10px 25px; }
         #muteBtn { position: absolute; bottom: 20px; right: 20px; background: #333; color: white; border-radius: 50%; width: 45px; height: 45px; border: none; z-index: 30; }
         #pauseBtn { position: absolute; top: 15px; right: 15px; z-index: 30; background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 8px 15px; border-radius: 5px; pointer-events: auto; }
+        #bottomIcons {
+  position: fixed !important;
+  bottom: 15px !important;
+  left: 12px !important;
+  display: flex !important;
+  gap: 8px !important;
+  z-index: 9999 !important;
+}
+#bottomIcons a {
+  width: 44px !important;
+  height: 44px !important;
+  background: #ffea00 !important;
+  border: 2px solid #000 !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+#bottomIcons a:last-child { background: white !important; }
+#bottomIcons img { width: 22px !important; height: 22px !important; }
     </style>
 </head>
 <body>
@@ -62,8 +82,8 @@ html, body {
 </div>
 
 <div id="menu">
-    <h1 style="color:#00ff00; margin: 0; font-style: italic; cursor: pointer; pointer-events: auto;" onclick="checkCheat()">CASTASTICS</h1>
-    <div style="color:#ffd700; margin: 5px 0;">BANK: 💰 <span id="totalCoinsDisplay">0</span></div>
+    <img src="logo.png" onclick="checkCheat()" style="width:45%; max-width:160px; display:block; margin:0 auto; cursor:pointer;">
+     <div style="color:#ffd700; margin: 5px 0;">BANK: 💰 <span id="totalCoinsDisplay">0</span></div>
     <div class="char-grid" id="charGrid"></div>
     <button onclick="startGame()">RUN!</button>
 </div>
@@ -563,5 +583,13 @@ html, body {
         }
     }
 </script>
+    <div id="bottomIcons">
+  <a href="https://shopcastastics.us.ci/" target="_blank">
+    <img src="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/bag-fill.svg">
+  </a>
+  <a href="https://castastics.us.ci/" target="_blank">
+    <img src="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/icons/globe.svg">
+  </a>
+    </div>
 </body>
     </html>
