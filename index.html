@@ -642,11 +642,11 @@ const castaNames = [
         else { ctx.scale(1 + stretch, 1 - stretch); }
 
         if(selectedChar.img && selectedChar.img.complete && selectedChar.img.naturalWidth!== 0) {
-            ctx.drawImage(selectedChar.img, -35, -50, 70, 100);
-        } else {
-            ctx.fillStyle = selectedChar.color || 'green';
-            ctx.fillRect(-35, -50, 70, 100);
-        }
+    ctx.drawImage(selectedChar.img, -45, -65, 90, 130);
+} else {
+    ctx.fillStyle = selectedChar.color || 'green';
+    ctx.fillRect(-45, -65, 90, 130);
+    }
         ctx.restore();
 
         const notify = document.getElementById('powerNotify');
